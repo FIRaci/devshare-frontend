@@ -2,7 +2,8 @@
 
 import {
   Container, Text, Spinner, VStack, HStack, Button, useToast,
-  AlertDialog, AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent, AlertDialogOverlay, useDisclosure, Flex, Heading, Box
+  AlertDialog, AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent, AlertDialogOverlay, useDisclosure, Flex, Heading, Box,
+  Image // THAY ĐỔI: Import `Image` để dùng ảnh
 } from '@chakra-ui/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api';
@@ -12,7 +13,8 @@ import useAuthStore from '@/store/authStore';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import React from 'react';
-import { FaExclamationTriangle, FaHome } from 'react-icons/fa';
+// THAY ĐỔI: Chỉ cần import icon cho nút Home
+import { FaHome } from 'react-icons/fa';
 
 const fetchPost = async (id: string): Promise<Post> => {
   const { data } = await apiClient.get(`/posts/${id}/`);
@@ -33,17 +35,14 @@ export default function PostDetailPage() {
   
   const queryKey = ['post', id];
 
-  // SỬA LỖI: Nâng cấp `useQuery` để xử lý lỗi tốt hơn
-  const { data: post, isLoading, isError, error } = useQuery<Post, any>({ // Dùng `any` cho error để truy cập `response`
+  const { data: post, isLoading, isError, error } = useQuery<Post, any>({
     queryKey: queryKey,
     queryFn: () => fetchPost(id as string),
     enabled: !!id,
     retry: (failureCount, error) => {
-      // Không retry khi gặp lỗi 404 Not Found
       if (error?.response?.status === 404) {
         return false;
       }
-      // Cho phép retry 2 lần cho các lỗi khác
       return failureCount < 2;
     },
   });
@@ -56,8 +55,6 @@ export default function PostDetailPage() {
     onSuccess: () => {
       toast({ title: "Post deleted.", status: 'success', duration: 3000, isClosable: true });
       queryClient.invalidateQueries({ queryKey: ['posts'] });
-      queryClient.invalidateQueries({ queryKey: ['allPosts'] });
-      queryClient.invalidateQueries({ queryKey: ['homeFeed'] });
       router.push('/');
     },
     onError: () => {
@@ -65,22 +62,21 @@ export default function PostDetailPage() {
     }
   });
 
-  // =================================================================
-  // SỬA LỖI: Cải thiện giao diện cho các trạng thái Loading, Error, Not Found
-  // =================================================================
-
   if (isLoading) {
     return <Flex justify="center" align="center" minH="50vh"><Spinner size="xl" /></Flex>;
   }
 
-  // Trường hợp 1: Lỗi 404 (Không tìm thấy) hoặc API trả về rỗng
   const isNotFound = (isError && error?.response?.status === 404) || (!post && !isLoading);
   if (isNotFound) {
     return (
       <Container centerContent py={10} textAlign="center">
         <Box>
           <Flex justify="center" mb={4}>
-            <Icon as={FaExclamationTriangle} boxSize="50px" color="yellow.400" />
+            {/*
+              THAY ĐỔI: Dùng component <Image> để hiển thị file ảnh của bro.
+              Next.js sẽ tự động tìm file "saber.ico" trong thư mục `public`.
+            */}
+            <Image src="/saber.ico" alt="Post Not Found Icon" boxSize="60px" />
           </Flex>
           <Heading size="lg">Post Not Found</Heading>
           <Text mt={2} color="gray.600">
@@ -96,7 +92,6 @@ export default function PostDetailPage() {
     );
   }
 
-  // Trường hợp 2: Các lỗi server khác
   if (isError) {
     return (
       <Container centerContent py={10} textAlign="center">
@@ -111,7 +106,6 @@ export default function PostDetailPage() {
     );
   }
   
-  // Nếu mọi thứ ổn, `post` chắc chắn tồn tại ở đây
   const isOwner = user && user.id === post!.author.id;
 
   return (
