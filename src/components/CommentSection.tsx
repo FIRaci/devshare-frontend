@@ -1,16 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react'; // Thêm useEffect
+import { useState, useEffect } from 'react';
 import {
-  Box, Button, FormControl, FormLabel, Heading, Text, Textarea, useToast, VStack, Spinner, Flex, Avatar, HStack
+  Box,
+  Button,
+  FormControl,
+  FormLabel,
+  Heading,
+  Text,
+  Textarea,
+  useToast,
+  VStack,
+  Spinner,
+  Flex,
+  Avatar,
+  HStack,
 } from '@chakra-ui/react';
 import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useInView } from 'react-intersection-observer';
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import apiClient from '@/lib/api';
 import useAuthStore from '@/store/authStore';
 import { Comment } from './PostCard';
-import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
-import { useInView } from 'react-intersection-observer';
-import React from 'react';
 
 interface PaginatedComments {
   next: string | null;
@@ -26,43 +37,32 @@ const fetchComments = async ({ pageParam = 1, queryKey }: any): Promise<Paginate
 };
 
 const createComment = async ({ postId, content }: { postId: number; content: string }): Promise<Comment> => {
-  const url = `/posts/${postId}/comments/`;
-  const { data } = await apiClient.post(url, { content });
+  const { data } = await apiClient.post(`/posts/${postId}/comments/`, { content });
   return data;
 };
 
 const CommentItem = ({ comment }: { comment: Comment }) => (
-    <HStack key={comment.id} p={4} bg="white" borderRadius="lg" w="full" align="start" spacing={4}>
-        <Avatar src={comment.author.profile?.avatar || ''} name={comment.author.username} size="sm" mt={1}/>
-        <VStack align="start" spacing={1}>
-             <HStack>
-                <Text fontSize="sm" fontWeight="bold">
-                    {comment.author.username}
-                </Text>
-                <Text fontSize="xs" color="gray.500">
-                    {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                </Text>
-            </HStack>
-            <Text fontSize="md">{comment.content}</Text>
-        </VStack>
-    </HStack>
-)
+  <HStack key={comment.id} p={4} bg="white" borderRadius="lg" w="full" align="start" spacing={4}>
+    <Avatar src={comment.author.profile?.avatar || ''} name={comment.author.username} size="sm" mt={1} />
+    <VStack align="start" spacing={1}>
+      <HStack>
+        <Text fontSize="sm" fontWeight="bold">{comment.author.username}</Text>
+        <Text fontSize="xs" color="gray.500">
+          {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+        </Text>
+      </HStack>
+      <Text fontSize="md">{comment.content}</Text>
+    </VStack>
+  </HStack>
+);
 
 export default function CommentSection({ postId }: { postId: number }) {
   const [content, setContent] = useState('');
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
   const user = useAuthStore((state) => state.user);
   const toast = useToast();
   const queryClient = useQueryClient();
   const { ref, inView } = useInView();
-  
-  // SỬA LỖI: Thêm một state để theo dõi xem đã kiểm tra user hay chưa
-  const [isAuthChecked, setIsAuthChecked] = useState(false);
-
-  useEffect(() => {
-    // Khi component được mount, đánh dấu là đã kiểm tra auth
-    setIsAuthChecked(true);
-  }, []);
-
   const queryKey = ['comments', postId];
 
   const {
@@ -73,7 +73,7 @@ export default function CommentSection({ postId }: { postId: number }) {
     isLoading,
     isError,
   } = useInfiniteQuery<PaginatedComments, Error>({
-    queryKey: queryKey,
+    queryKey,
     queryFn: fetchComments,
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
@@ -86,18 +86,22 @@ export default function CommentSection({ postId }: { postId: number }) {
     },
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (inView && hasNextPage) {
       fetchNextPage();
     }
   }, [inView, hasNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    setIsAuthChecked(true);
+  }, []);
 
   const mutation = useMutation({
     mutationFn: (newComment: { content: string }) => createComment({ postId, content: newComment.content }),
     onSuccess: () => {
       setContent('');
       toast({ title: 'Comment posted!', status: 'success', duration: 2000 });
-      queryClient.invalidateQueries({ queryKey: queryKey });
+      queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['post', postId] });
     },
     onError: () => {
@@ -110,17 +114,18 @@ export default function CommentSection({ postId }: { postId: number }) {
     if (!content.trim()) return;
     mutation.mutate({ content });
   };
-  
-  const allComments = commentsData?.pages.flatMap(page => page.results) ?? [];
+
+  const allComments = commentsData?.pages.flatMap((page) => page.results) ?? [];
 
   return (
     <Box mt={8} w="full">
-      {/* SỬA LỖI: Chỉ hiển thị form khi đã kiểm tra và có user */}
       {isAuthChecked && user && (
         <Box p={6} bg="white" boxShadow="sm" borderRadius="lg" mb={6} borderWidth="1px">
           <form onSubmit={handleCommentSubmit}>
             <FormControl>
-              <FormLabel htmlFor="comment-content" fontSize="sm">Comment as {user.username}</FormLabel>
+              <FormLabel htmlFor="comment-content" fontSize="sm">
+                Comment as {user.username}
+              </FormLabel>
               <Textarea
                 id="comment-content"
                 value={content}
@@ -129,40 +134,44 @@ export default function CommentSection({ postId }: { postId: number }) {
               />
             </FormControl>
             <Flex justify="flex-end">
-                <Button mt={4} colorScheme="blue" type="submit" isLoading={mutation.isPending}>
+              <Button mt={4} colorScheme="blue" type="submit" isLoading={mutation.isPending}>
                 Comment
-                </Button>
+              </Button>
             </Flex>
           </form>
         </Box>
       )}
 
       <VStack spacing={4} align="stretch" bg="gray.50" p={4} borderRadius="lg">
-        <Heading size="md" mb={2}>Comments ({allComments.length})</Heading>
+        <Heading size="md" mb={2}>
+          Comments ({allComments.length})
+        </Heading>
         {isLoading ? (
-            <Flex justify="center" p={10}><Spinner /></Flex>
+          <Flex justify="center" p={10}>
+            <Spinner />
+          </Flex>
         ) : isError ? (
-            <Text color="red.500">Could not load comments.</Text>
+          <Text color="red.500">Could not load comments.</Text>
         ) : allComments.length > 0 ? (
-            <>
-                {allComments.map((comment) => (
-                    <CommentItem key={comment.id} comment={comment} />
-                ))}
-                {hasNextPage && (
-                    <Button
-                        ref={ref}
-                        onClick={() => fetchNextPage()}
-                        isLoading={isFetchingNextPage}
-                        variant="outline"
-                    >
-                        Load More Comments
-                    </Button>
-                )}
-            </>
+          <>
+            {allComments.map((comment) => (
+              <CommentItem key={comment.id} comment={comment} />
+            ))}
+            {hasNextPage && (
+              <Button
+                ref={ref}
+                onClick={() => fetchNextPage()}
+                isLoading={isFetchingNextPage}
+                variant="outline"
+              >
+                Load More Comments
+              </Button>
+            )}
+          </>
         ) : (
-            <Text color="gray.500" textAlign="center" p={5}>
-                Be the first to comment!
-            </Text>
+          <Text color="gray.500" textAlign="center" p={5}>
+            Be the first to comment!
+          </Text>
         )}
       </VStack>
     </Box>
