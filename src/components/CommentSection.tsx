@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Thêm useEffect
 import {
   Box, Button, FormControl, FormLabel, Heading, Text, Textarea, useToast, VStack, Spinner, Flex, Avatar, HStack
 } from '@chakra-ui/react';
@@ -25,9 +25,7 @@ const fetchComments = async ({ pageParam = 1, queryKey }: any): Promise<Paginate
   return data;
 };
 
-// SỬA LỖI: Cập nhật hàm createComment để gửi request đến đúng URL
 const createComment = async ({ postId, content }: { postId: number; content: string }): Promise<Comment> => {
-  // URL đúng phải là URL lồng nhau (nested)
   const url = `/posts/${postId}/comments/`;
   const { data } = await apiClient.post(url, { content });
   return data;
@@ -57,6 +55,14 @@ export default function CommentSection({ postId }: { postId: number }) {
   const queryClient = useQueryClient();
   const { ref, inView } = useInView();
   
+  // SỬA LỖI: Thêm một state để theo dõi xem đã kiểm tra user hay chưa
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
+
+  useEffect(() => {
+    // Khi component được mount, đánh dấu là đã kiểm tra auth
+    setIsAuthChecked(true);
+  }, []);
+
   const queryKey = ['comments', postId];
 
   const {
@@ -86,7 +92,6 @@ export default function CommentSection({ postId }: { postId: number }) {
     }
   }, [inView, hasNextPage, fetchNextPage]);
 
-  // SỬA LỖI: Cập nhật mutation để gọi hàm createComment mới
   const mutation = useMutation({
     mutationFn: (newComment: { content: string }) => createComment({ postId, content: newComment.content }),
     onSuccess: () => {
@@ -110,7 +115,8 @@ export default function CommentSection({ postId }: { postId: number }) {
 
   return (
     <Box mt={8} w="full">
-      {user && (
+      {/* SỬA LỖI: Chỉ hiển thị form khi đã kiểm tra và có user */}
+      {isAuthChecked && user && (
         <Box p={6} bg="white" boxShadow="sm" borderRadius="lg" mb={6} borderWidth="1px">
           <form onSubmit={handleCommentSubmit}>
             <FormControl>
