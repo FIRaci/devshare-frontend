@@ -7,7 +7,6 @@ import {
 import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api';
 import useAuthStore from '@/store/authStore';
-// SỬA LỖI: Import Comment từ file PostCard đã được cập nhật
 import { Comment } from './PostCard';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import { useInView } from 'react-intersection-observer';
@@ -22,12 +21,15 @@ const fetchComments = async ({ pageParam = 1, queryKey }: any): Promise<Paginate
   const [_key, postId] = queryKey;
   const { data } = await apiClient.get(`/posts/${postId}/comments/`, {
     params: { page: pageParam },
-  }); 
+  });
   return data;
 };
 
-const createComment = async (commentData: { post: number; content: string }): Promise<Comment> => {
-  const { data } = await apiClient.post('/comments/', commentData);
+// SỬA LỖI: Cập nhật hàm createComment để gửi request đến đúng URL
+const createComment = async ({ postId, content }: { postId: number; content: string }): Promise<Comment> => {
+  // URL đúng phải là URL lồng nhau (nested)
+  const url = `/posts/${postId}/comments/`;
+  const { data } = await apiClient.post(url, { content });
   return data;
 };
 
@@ -84,8 +86,9 @@ export default function CommentSection({ postId }: { postId: number }) {
     }
   }, [inView, hasNextPage, fetchNextPage]);
 
+  // SỬA LỖI: Cập nhật mutation để gọi hàm createComment mới
   const mutation = useMutation({
-    mutationFn: createComment,
+    mutationFn: (newComment: { content: string }) => createComment({ postId, content: newComment.content }),
     onSuccess: () => {
       setContent('');
       toast({ title: 'Comment posted!', status: 'success', duration: 2000 });
@@ -100,7 +103,7 @@ export default function CommentSection({ postId }: { postId: number }) {
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
-    mutation.mutate({ post: postId, content });
+    mutation.mutate({ content });
   };
   
   const allComments = commentsData?.pages.flatMap(page => page.results) ?? [];
