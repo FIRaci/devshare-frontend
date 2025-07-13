@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-// Interface User phải có is_staff
 interface User {
   id: number;
   username: string;
@@ -12,6 +11,7 @@ interface User {
   };
 }
 
+// SỬA LỖI: Thêm lại updateUserProfile vào đây
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
@@ -19,6 +19,7 @@ interface AuthState {
   setTokens: (tokens: { access: string; refresh: string }) => void;
   setUser: (user: User) => void;
   logout: () => void;
+  updateUserProfile: (profileData: Partial<User['profile']>) => void;
 }
 
 const useAuthStore = create<AuthState>()(
@@ -36,14 +37,26 @@ const useAuthStore = create<AuthState>()(
 
       logout: () => {
         set({ accessToken: null, refreshToken: null, user: null });
-        // Xóa luôn dữ liệu query cũ để đảm bảo không bị cache
-        // queryClient.clear();
+      },
+      
+      // SỬA LỖI: Thêm lại logic của hàm updateUserProfile
+      updateUserProfile: (profileData) => {
+        set((state) => ({
+          user: state.user
+            ? {
+                ...state.user,
+                profile: {
+                  ...state.user.profile!,
+                  ...profileData,
+                },
+              }
+            : null,
+        }));
       },
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
-      // Chỉ lưu token, không lưu user để đảm bảo dữ liệu user luôn mới
       partialize: (state) => ({
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
