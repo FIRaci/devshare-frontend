@@ -8,7 +8,7 @@ import { BsThreeDots } from 'react-icons/bs';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import useAuthStore from '@/store/authStore';
 import useHiddenPostsStore from '@/store/hiddenPostsStore';
 import MarkdownRenderer from './MarkdownRenderer';
