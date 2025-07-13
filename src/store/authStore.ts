@@ -1,25 +1,24 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
-interface Profile {
-  bio: string | null;
-  avatar: string | null;
-}
-
+// Interface User phải có is_staff
 interface User {
   id: number;
   username: string;
-  email: string;
-  profile: Profile;
+  is_staff: boolean;
+  profile?: {
+    bio: string;
+    avatar: string;
+  };
 }
 
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   user: User | null;
-  setAuth: ({ accessToken, refreshToken, user }: { accessToken: string; refreshToken: string; user: User }) => void;
+  setTokens: (tokens: { access: string; refresh: string }) => void;
+  setUser: (user: User) => void;
   logout: () => void;
-  updateUserProfile: (profile: Profile) => void;
 }
 
 const useAuthStore = create<AuthState>()(
@@ -28,15 +27,27 @@ const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       user: null,
-      setAuth: ({ accessToken, refreshToken, user }) => set({ accessToken, refreshToken, user }),
-      logout: () => set({ accessToken: null, refreshToken: null, user: null }),
-      updateUserProfile: (profile) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, profile } : null,
-        })),
+
+      setTokens: (tokens) => {
+        set({ accessToken: tokens.access, refreshToken: tokens.refresh });
+      },
+
+      setUser: (user) => set({ user }),
+
+      logout: () => {
+        set({ accessToken: null, refreshToken: null, user: null });
+        // Xóa luôn dữ liệu query cũ để đảm bảo không bị cache
+        // queryClient.clear();
+      },
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => localStorage),
+      // Chỉ lưu token, không lưu user để đảm bảo dữ liệu user luôn mới
+      partialize: (state) => ({
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+      }),
     }
   )
 );

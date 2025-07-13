@@ -24,6 +24,9 @@ export interface Author {
 }
 
 export interface Community {
+  description: ReactNode;
+  member_count: ReactNode;
+  is_member: any;
   id: number;
   name: string;
 }

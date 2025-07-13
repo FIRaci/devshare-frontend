@@ -1,14 +1,23 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import apiClient from '@/lib/api';
 import useAuthStore from '@/store/authStore';
 import {
-  Box, Container, Heading, Text, Spinner, Button, Flex, VStack, useToast,
+  Box, Container, Heading, Text, Spinner, Button, Flex, VStack, useToast
 } from '@chakra-ui/react';
 import PostFeed from '@/components/PostFeed';
-import { Community } from '@/components/Sidebar';
+import React from 'react';
+
+// Quay về interface Community gốc
+interface Community {
+  id: number;
+  name: string;
+  description: string;
+  member_count: number;
+  is_member: boolean;
+}
 
 const fetchCommunityDetails = async (name: string): Promise<Community> => {
   const { data } = await apiClient.get(`/communities/${name}/`);
@@ -28,21 +37,15 @@ export default function CommunityPage() {
     enabled: !!name,
   });
 
-  const mutation = useMutation({
-    // SỬA LỖI: Dùng `community.name` thay cho `community.id` để gọi API
+  const joinMutation = useMutation({
     mutationFn: (action: 'join' | 'leave') => apiClient.post(`/communities/${community!.name}/${action}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['community', name] });
       queryClient.invalidateQueries({ queryKey: ['communities'] });
     },
-    onError: () => {
-        toast({
-            title: "Action failed",
-            description: "Could not update your membership. Please try again.",
-            status: "error",
-            duration: 3000,
-            isClosable: true,
-        });
+    onError: (error: any) => {
+        const errorMsg = error.response?.data?.error || "Could not update your membership. Please try again.";
+        toast({ title: "Action failed", description: errorMsg, status: "error" });
     }
   });
 
@@ -52,7 +55,7 @@ export default function CommunityPage() {
       return;
     }
     const action = community?.is_member ? 'leave' : 'join';
-    mutation.mutate(action);
+    joinMutation.mutate(action);
   };
 
   if (isLoading) {
@@ -72,20 +75,22 @@ export default function CommunityPage() {
             <Text color="gray.600" mt={2}>{community.description}</Text>
           </Box>
           
-          {user && (
-            <VStack align="flex-end" spacing={2}>
-              <Text fontSize="sm" color="gray.500">{community.member_count} members</Text>
+          <VStack align="flex-end" spacing={2}>
+            <Text fontSize="sm" color="gray.500">{community.member_count} members</Text>
+            {/* ROLLBACK: Hiển thị lại nút Join/Leave như cũ */}
+            {user && (
               <Button
                 size="sm"
                 colorScheme={community.is_member ? 'gray' : 'blue'}
                 onClick={handleToggleJoin}
-                isLoading={mutation.isPending}
+                isLoading={joinMutation.isPending}
               >
                 {community.is_member ? 'Leave' : 'Join'}
               </Button>
-            </VStack>
-          )}
+            )}
+          </VStack>
         </Flex>
+        {/* ROLLBACK: Xóa hoàn toàn nút Delete của admin */}
       </Box>
       <PostFeed communityName={name} />
     </Container>
